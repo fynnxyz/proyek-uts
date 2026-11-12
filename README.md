@@ -21,6 +21,7 @@ Proyek ini disusun untuk memenuhi tugas Miniproject UTS mata kuliah **Praktikum 
 | 5 | R. Gilang Setyo Nugroho | 2409020019 | Data, Persistence, QA & Dokumentasi | Struktur `filters.json`, simpan foto ke perangkat, matriks perangkat, `README.md`, video demo, *issue log* |
 
 ## Struktur Folder
+```text
 ar-filter-wisuda/
 ├── assets/
 │   └── .gitkeep        # Penyimpanan model 3D (.glb) dan ikon antarmuka
