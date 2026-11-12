@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Filter Wajah Wisuda &amp; Kampus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#101c3d; --navy-2:#1b2b5c; --gold:#f0c24b; --gold-d:#c99a1e;
+    --paper:#f7f4ec; --ink:#0a1128; --danger:#ff7a6b;
+    --font:'Bricolage Grotesque',system-ui,-apple-system,'Segoe UI',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;background:var(--navy);color:var(--paper);font-family:var(--font);overflow:hidden}
+  #stage{position:fixed;inset:0;background:var(--navy)}
+
+  /* ---------- HUD ---------- */
+  .top{position:fixed;left:0;right:0;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;
+    padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 24px;
+    background:linear-gradient(to bottom,rgba(10,17,40,.65),transparent);pointer-events:none}
+  .brand{font-weight:800;font-size:17px;letter-spacing:-.01em}
+  .brand small{display:block;font-weight:500;font-size:12px;opacity:.75;letter-spacing:0}
+  .status{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;padding:7px 12px;border-radius:99px;
+    background:rgba(10,17,40,.6);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--gold);animation:pulse 1.2s infinite}
+  .status.found .dot{background:#5be3a1;animation:none}
+  @keyframes pulse{50%{opacity:.3}}
+
+  .bottom{position:fixed;left:0;right:0;bottom:0;z-index:5;
+    padding:40px 16px calc(env(safe-area-inset-bottom,0px) + 18px);
+    background:linear-gradient(to top,rgba(10,17,40,.85) 30%,transparent)}
+  .caption{text-align:center;margin-bottom:14px}
+  .caption b{font-size:20px;font-weight:800;letter-spacing:-.01em}
+  .caption span{display:block;font-size:13px;opacity:.8;margin-top:2px}
+  .controls{display:flex;align-items:center;justify-content:center;gap:22px}
+  .nav{width:52px;height:52px;border-radius:50%;border:0;color:var(--paper);font-size:22px;cursor:pointer;
+    background:rgba(255,255,255,.14);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  .nav:active{transform:scale(.92)}
+  .shutter{width:80px;height:80px;border-radius:50%;border:4px solid var(--paper);background:transparent;padding:5px;cursor:pointer}
+  .shutter i{display:block;width:100%;height:100%;border-radius:50%;background:var(--gold);transition:transform .12s}
+  .shutter:active i{transform:scale(.86)}
+  .shutter:disabled{opacity:.4}
+  .chips{display:flex;justify-content:center;gap:8px;margin-top:14px}
+  .chip{width:9px;height:9px;border-radius:99px;background:rgba(255,255,255,.35);transition:.2s}
+  .chip.on{width:26px;background:var(--gold)}
+  button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+
+  /* ---------- Overlay (loading / error) ---------- */
+  .overlay{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:28px;text-align:center;
+    background:radial-gradient(120% 90% at 50% 0%,var(--navy-2),var(--navy))}
+  .overlay.hide{display:none}
+  .card{max-width:340px}
+  .emoji{font-size:56px;margin-bottom:14px}
+  .card h1{font-size:26px;font-weight:800;letter-spacing:-.02em;margin-bottom:10px}
+  .card p{font-size:15px;line-height:1.55;opacity:.85}
+  .card ol{text-align:left;font-size:14px;line-height:1.6;margin:14px 0 0 20px;opacity:.9}
+  .btn{margin-top:22px;border:0;border-radius:14px;padding:14px 22px;font:700 16px var(--font);
+    background:var(--gold);color:var(--ink);cursor:pointer}
+  .btn.ghost{background:rgba(255,255,255,.14);color:var(--paper);margin-left:8px}
+  .spinner{width:44px;height:44px;border-radius:50%;border:4px solid rgba(255,255,255,.2);border-top-color:var(--gold);
+    margin:0 auto 18px;animation:spin .9s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* ---------- Preview foto ---------- */
+  .flash{position:fixed;inset:0;z-index:15;background:#fff;opacity:0;pointer-events:none}
+  .flash.go{animation:flash .35s ease-out}
+  @keyframes flash{0%{opacity:.85}100%{opacity:0}}
+  .preview{position:fixed;inset:0;z-index:18;display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;
+    padding:20px;background:rgba(10,17,40,.92)}
+  .preview.show{display:flex}
+  .preview img{max-width:100%;max-height:68vh;border-radius:18px;border:3px solid var(--paper);box-shadow:0 18px 50px rgba(0,0,0,.5)}
+  .row{display:flex;gap:10px}
+  .row .btn{margin:0}
+  .toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 70px);transform:translate(-50%,-20px);z-index:25;
+    background:var(--paper);color:var(--ink);font-weight:700;font-size:14px;padding:10px 16px;border-radius:99px;
+    opacity:0;transition:.25s;pointer-events:none}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+
+  @media (prefers-reduced-motion:reduce){.dot,.spinner{animation:none}}
+</style>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+    "mindar-face-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-face-three.prod.js"
+  }
+}
+</script>
+</head>
+
+<body>
+  <div id="stage"></div>
+
+  <header class="top">
+    <div class="brand">Wisuda &amp; Kampus<small>Filter wajah AR</small></div>
+    <div class="status" id="status"><span class="dot"></span><span id="statusText">Mencari wajah</span></div>
+  </header>
+
+  <footer class="bottom">
+    <div class="caption"><b id="fName">…</b><span id="fDesc"></span></div>
+    <div class="controls">
+      <button class="nav" id="prev" aria-label="Filter sebelumnya">‹</button>
+      <button class="shutter" id="shutter" aria-label="Ambil foto" disabled><i></i></button>
+      <button class="nav" id="next" aria-label="Filter berikutnya">›</button>
+    </div>
+    <div class="chips" id="chips"></div>
+  </footer>
+
+  <!-- Loading -->
+  <div class="overlay" id="loading">
+    <div class="card"><div class="spinner"></div><h1>Menyiapkan kamera</h1><p>Izinkan akses kamera saat diminta. Video diproses di perangkatmu dan tidak diunggah ke mana pun.</p></div>
+  </div>
+
+  <!-- Kamera ditolak / error -->
+  <div class="overlay hide" id="errorBox">
+    <div class="card">
+      <div class="emoji" id="errEmoji">📷</div>
+      <h1 id="errTitle">Kamera tidak bisa dipakai</h1>
+      <p id="errMsg"></p>
+      <ol id="errSteps"></ol>
+      <button class="btn" id="retry">Coba lagi</button>
+    </div>
+  </div>
+
+  <div class="flash" id="flash"></div>
+  <div class="preview" id="preview">
+    <img id="previewImg" alt="Hasil foto filter">
+    <div class="row">
+      <button class="btn" id="save">Simpan foto</button>
+      <button class="btn ghost" id="closePreview">Tutup</button>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MindARThree } from 'mindar-face-three';
+
+const $ = id => document.getElementById(id);
+const STORAGE_KEY = 'ar-wisuda:filter-terakhir';
+
+/* =====================================================
+   1. MODEL FALLBACK (dibuat dengan kode jika .glb belum ada)
+   ===================================================== */
+const mat = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: .45, metalness: .1, ...o });
+const GOLD = () => mat(0xf0c24b, { metalness: .85, roughness: .25 });
+
+function buatToga() {
+  const g = new THREE.Group();
+  const navy = mat(0x14204a, { roughness: .8 });
+
+  const base = new THREE.Mesh(new THREE.CylinderGeometry(.6, .66, .5, 32), navy);
+  base.position.y = -.1; g.add(base);
+
+  const board = new THREE.Mesh(new THREE.BoxGeometry(2, .08, 2), navy);
+  board.position.y = .2; board.rotation.y = Math.PI / 4; g.add(board);
+
+  const button = new THREE.Mesh(new THREE.CylinderGeometry(.09, .09, .06, 16), GOLD());
+  button.position.y = .27; g.add(button);
+
+  // Tali kuncir: pivot di tengah papan, ayunan dihitung tiap frame
+  const pivot = new THREE.Group(); pivot.position.set(0, .27, 0); g.add(pivot);
+  const cord = new THREE.Mesh(new THREE.CylinderGeometry(.025, .025, 1.0, 8), GOLD());
+  cord.position.set(.5, 0, 0); cord.rotation.z = Math.PI / 2; pivot.add(cord);
+  const swing = new THREE.Group(); swing.position.set(1.0, 0, 0); pivot.add(swing);
+  const rope = new THREE.Mesh(new THREE.CylinderGeometry(.025, .025, .4, 8), GOLD());
+  rope.position.y = -.2; swing.add(rope);
+  const tassel = new THREE.Mesh(new THREE.ConeGeometry(.1, .35, 16), GOLD());
+  tassel.position.y = -.55; tassel.rotation.x = Math.PI; swing.add(tassel);
+  const knob = new THREE.Mesh(new THREE.SphereGeometry(.07, 12, 12), GOLD());
+  knob.position.y = -.38; swing.add(knob);
+
+  return { object: g, update: t => {          // animasi aktif (loop)
+    swing.rotation.z = Math.sin(t * 3.2) * .38;
+    swing.rotation.x = Math.cos(t * 2.4) * .18;
+    g.rotation.z = Math.sin(t * 1.4) * .03;
+  }};
+}
+
+function buatKacamata() {
+  const g = new THREE.Group();
+  const frame = GOLD();
+  const lens = mat(0x7fd6ff, { transparent: true, opacity: .35, metalness: .3, roughness: .1 });
+
+  [-1, 1].forEach(s => {
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(.33, .04, 12, 40), frame);
+    ring.position.x = s * .42; g.add(ring);
+    const glass = new THREE.Mesh(new THREE.CircleGeometry(.33, 32), lens);
+    glass.position.set(s * .42, 0, .01); g.add(glass);
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(.025, .025, .9, 8), frame);
+    arm.rotation.x = Math.PI / 2; arm.position.set(s * .75, .05, -.45); g.add(arm);
+  });
+  const bridge = new THREE.Mesh(new THREE.CylinderGeometry(.03, .03, .22, 8), frame);
+  bridge.rotation.z = Math.PI / 2; bridge.position.y = .08; g.add(bridge);
+
+  // Bintang berkilau yang mengorbit
+  const stars = [];
+  for (let i = 0; i < 5; i++) {
+    const s = new THREE.Mesh(new THREE.OctahedronGeometry(.07 + (i % 2) * .03), mat(0xfff2b0, { emissive: 0xf0c24b, emissiveIntensity: .8 }));
+    g.add(s); stars.push(s);
+  }
+  return { object: g, update: t => {
+    stars.forEach((s, i) => {
+      const a = t * 1.8 + (i / stars.length) * Math.PI * 2;
+      s.position.set(Math.cos(a) * 1.0, Math.sin(a * 1.3) * .4 + .15, .2);
+      s.rotation.set(t * 3 + i, t * 2, 0);
+      s.scale.setScalar(.75 + Math.sin(t * 5 + i * 1.7) * .35);
+    });
+  }};
+}
+
+const FALLBACKS = { toga: buatToga, kacamata: buatKacamata };
+
+function buatLalat() {
+  const group = new THREE.Group();
+  const hitam = mat(0x241d24, { metalness: .15, roughness: .55 });
+  const sayapMat = new THREE.MeshStandardMaterial({ color: 0xe7f5ff, transparent: true, opacity: .8, roughness: .2 });
+  const badan = new THREE.Mesh(new THREE.SphereGeometry(.13, 16, 12), hitam);
+  badan.scale.set(1.35, .8, .75);
+  group.add(badan);
+
+  const kepala = new THREE.Mesh(new THREE.SphereGeometry(.085, 14, 12), hitam);
+  kepala.position.x = .18; group.add(kepala);
+  const mataMat = mat(0xffffff, { emissive: 0x777777 });
+  [-1, 1].forEach(side => {
+    const mata = new THREE.Mesh(new THREE.SphereGeometry(.025, 8, 8), mataMat);
+    mata.position.set(.22, .025, side * .06); group.add(mata);
+  });
+
+  const wings = [-1, 1].map(side => {
+    const wing = new THREE.Mesh(new THREE.SphereGeometry(.12, 12, 8), sayapMat);
+    wing.scale.set(1, .35, .65);
+    wing.position.set(-.015, .105, side * .075);
+    group.add(wing);
+    return wing;
+  });
+  return { group, wings };
+}
+
+function buatKepalan() {
+  const group = new THREE.Group();
+  const sarung = mat(0xf0c24b, { roughness: .38 });
+  const cuff = new THREE.Mesh(new THREE.CylinderGeometry(.13, .16, .22, 12), mat(0x26366e));
+  cuff.rotation.z = Math.PI / 2;
+  cuff.position.x = -.21;
+  group.add(cuff);
+
+  const telapak = new THREE.Mesh(new THREE.SphereGeometry(.2, 16, 12), sarung);
+  telapak.scale.set(1.15, .95, .9);
+  group.add(telapak);
+  for (let i = 0; i < 4; i++) {
+    const ruas = new THREE.Mesh(new THREE.SphereGeometry(.075, 10, 8), sarung);
+    ruas.position.set(.12, .105 - i * .065, .035);
+    group.add(ruas);
+  }
+  const ibuJari = new THREE.Mesh(new THREE.SphereGeometry(.09, 10, 8), sarung);
+  ibuJari.position.set(.02, -.12, .13);
+  ibuJari.rotation.z = -.55;
+  group.add(ibuJari);
+  return group;
+}
+
+function buatEfekTonjok() {
+  const group = new THREE.Group();
+  const kepalan = buatKepalan();
+  group.add(kepalan);
+
+  const kilau = new THREE.Group();
+  const material = mat(0xfff2a6, { emissive: 0xf0c24b, emissiveIntensity: 1.3 });
+  for (let i = 0; i < 5; i++) {
+    const bintang = new THREE.Mesh(new THREE.OctahedronGeometry(.075, 0), material);
+    const sudut = i / 5 * Math.PI * 2;
+    bintang.position.set(Math.cos(sudut) * .38, Math.sin(sudut) * .32, .04);
+    kilau.add(bintang);
+  }
+  kilau.visible = false;
+  group.add(kilau);
+  return { group, kepalan, kilau };
+}
+
+/* =====================================================
+   2. STATE & ELEMEN
+   ===================================================== */
+let config, mindar, renderer, scene, camera;
+let filters = [];          // { data, groups:[{group, update, mixer}] }
+let aktif = 0;
+const clock = new THREE.Clock();
+let started = false, lastPhoto = null;
+let faceDetected = false;
+let efekWajah;
+
+/* =====================================================
+   3. MUAT MODEL (GLB, jika gagal pakai fallback)
+   ===================================================== */
+const loader = new GLTFLoader();
+function muatGLB(url) {
+  return new Promise((ok, err) => loader.load(url, ok, undefined, err));
+}
+
+async function buatAksesori(a, anchorGroup) {
+  const wrapper = new THREE.Group();
+  let update = () => {}, mixer = null;
+
+  try {
+    const gltf = await muatGLB(a.model);
+    wrapper.add(gltf.scene);
+    if (gltf.animations?.length) {            // animasi bawaan GLB
+      mixer = new THREE.AnimationMixer(gltf.scene);
+      gltf.animations.forEach(c => mixer.clipAction(c).play());
+    }
+  } catch {
+    const fb = FALLBACKS[a.fallback]();       // model buatan kode
+    wrapper.add(fb.object);
+    update = fb.update;
+  }
+
+  wrapper.position.set(...a.posisi);
+  wrapper.rotation.set(...a.rotasi);
+  wrapper.scale.setScalar(a.skala);
+  wrapper.visible = false;
+  anchorGroup.add(wrapper);
+  return { group: wrapper, update, mixer };
+}
+
+async function pastikanAksesKamera() {
+  if (!window.isSecureContext) {
+    const error = new Error('Kamera membutuhkan HTTPS atau localhost.');
+    error.name = 'InsecureContextError';
+    throw error;
+  }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    const error = new Error('Browser tidak menyediakan akses kamera.');
+    error.name = 'NotSupportedError';
+    throw error;
+  }
+
+  const stream = await navigator.mediaDevices.getUserMedia({
+    audio: false,
+    video: { facingMode: 'user' }
+  });
+  stream.getTracks().forEach(track => track.stop());
+}
+
+/* =====================================================
+   4. INISIALISASI AR
+   ===================================================== */
+async function init() {
+  config = await (await fetch('filters.json')).json();
+
+  mindar = new MindARThree({ container: $('stage') });
+  ({ renderer, scene, camera } = mindar);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x334466, 1.1));
+  const dir = new THREE.DirectionalLight(0xffffff, 1.2);
+  dir.position.set(1, 2, 3); scene.add(dir);
+
+  // Satu anchor per titik wajah yang dipakai
+  const anchors = {};
+  const getAnchor = idx => anchors[idx] ??= mindar.addAnchor(idx);
+
+  const mulutAtas = getAnchor(13).group;
+  const mulutBawah = getAnchor(14).group;
+  const mataKiri = getAnchor(33).group;
+  const mataKanan = getAnchor(263).group;
+  const efekLalat = buatLalat();
+  const efekTonjok = buatEfekTonjok();
+  mulutAtas.add(efekLalat.group);
+  getAnchor(168).group.add(efekTonjok.group);
+  efekLalat.group.visible = false;
+  efekTonjok.group.visible = false;
+  efekLalat.group.scale.setScalar(.7);
+
+  for (const f of config.filters) {
+    const groups = [];
+    for (const a of f.aksesori) groups.push(await buatAksesori(a, getAnchor(a.anchor).group));
+    filters.push({ data: f, groups });
+  }
+
+  efekWajah = {
+    fly: { ...efekLalat, active: false, startedAt: 0, cooldownUntil: 0, armed: true },
+    punch: { ...efekTonjok, active: false, startedAt: 0, cooldownUntil: 0, armed: true, direction: 1 },
+    mouthUpper: mulutAtas,
+    mouthLower: mulutBawah,
+    leftEye: mataKiri,
+    rightEye: mataKanan
+  };
+
+  await pastikanAksesKamera();
+  await mindar.start();                       // minta izin kamera di sini
+  started = true;
+
+  const saved = localStorage.getItem(STORAGE_KEY);
+  const idx = filters.findIndex(f => f.data.id === saved);
+  pilihFilter(idx >= 0 ? idx : 0);
+
+  renderer.setAnimationLoop(() => {
+    const dt = clock.getDelta(), t = clock.elapsedTime;
+    const faceFound = Boolean(mindar.getLatestEstimate());
+    if (faceFound !== faceDetected) setStatus(faceFound);
+    filters[aktif].groups.forEach(g => { g.update(t); g.mixer?.update(dt); });
+    updateEfekWajah(t, faceFound);
+    renderer.render(scene, camera);
+  });
+
+  $('loading').classList.add('hide');
+  $('shutter').disabled = false;
+}
+
+function setStatus(found) {
+  faceDetected = found;
+  $('status').classList.toggle('found', found);
+  $('statusText').textContent = found ? 'Wajah terdeteksi' : 'Mencari wajah';
+}
+
+function updateEfekWajah(t, faceFound) {
+  if (!efekWajah || !faceFound) {
+    if (efekWajah) {
+      efekWajah.fly.active = false;
+      efekWajah.fly.group.visible = false;
+      efekWajah.punch.active = false;
+      efekWajah.punch.group.visible = false;
+      efekWajah.punch.kilau.visible = false;
+      efekWajah.fly.armed = true;
+      efekWajah.punch.armed = true;
+    }
+    return;
+  }
+
+  scene.updateMatrixWorld(true);
+  const point = group => group.getWorldPosition(new THREE.Vector3());
+  const lipGap = point(efekWajah.mouthUpper).distanceTo(point(efekWajah.mouthLower));
+  const eyeLeft = point(efekWajah.leftEye);
+  const eyeRight = point(efekWajah.rightEye);
+  const faceWidth = eyeLeft.distanceTo(eyeRight);
+  const mouthRatio = faceWidth > 0 ? lipGap / faceWidth : 0;
+  const mouthOpen = mouthRatio > .12;
+
+  if (!mouthOpen) efekWajah.fly.armed = true;
+  if (mouthOpen && efekWajah.fly.armed && !efekWajah.fly.active && t >= efekWajah.fly.cooldownUntil) {
+    efekWajah.fly.active = true;
+    efekWajah.fly.armed = false;
+    efekWajah.fly.startedAt = t;
+    efekWajah.fly.cooldownUntil = t + 1.8;
+    efekWajah.fly.group.visible = true;
+    efekWajah.fly.group.position.set(-.72, .12, .48);
+  }
+
+  if (efekWajah.fly.active) {
+    const progress = (t - efekWajah.fly.startedAt) / .85;
+    const travel = Math.min(progress, 1);
+    const ease = 1 - (1 - travel) ** 3;
+    efekWajah.fly.group.position.set(
+      THREE.MathUtils.lerp(-.72, 0, ease),
+      THREE.MathUtils.lerp(.12, -.025, ease) + Math.sin(t * 24) * .025 * (1 - travel),
+      THREE.MathUtils.lerp(.48, -.12, ease)
+    );
+    efekWajah.fly.group.rotation.y = Math.sin(t * 12) * .22;
+    efekWajah.fly.wings.forEach((wing, i) => {
+      wing.rotation.x = Math.sin(t * 48 + i * Math.PI) * .65;
+    });
+    efekWajah.fly.group.scale.setScalar(.7 * (1 - .55 * ease));
+    if (progress >= 1.05) {
+      efekWajah.fly.active = false;
+      efekWajah.fly.group.visible = false;
+    }
+  }
+
+  const dx = eyeRight.x - eyeLeft.x;
+  const dy = eyeRight.y - eyeLeft.y;
+  let roll = Math.atan2(dy, dx);
+  if (roll > Math.PI / 2) roll -= Math.PI;
+  if (roll < -Math.PI / 2) roll += Math.PI;
+  const tilt = Math.abs(roll);
+
+  if (tilt < .14) efekWajah.punch.armed = true;
+  if (tilt > .34 && efekWajah.punch.armed && !efekWajah.punch.active && t >= efekWajah.punch.cooldownUntil) {
+    efekWajah.punch.active = true;
+    efekWajah.punch.armed = false;
+    efekWajah.punch.startedAt = t;
+    efekWajah.punch.cooldownUntil = t + 1.4;
+    efekWajah.punch.direction = roll >= 0 ? 1 : -1;
+    efekWajah.punch.group.visible = true;
+    efekWajah.punch.kilau.visible = false;
+  }
+
+  if (efekWajah.punch.active) {
+    const progress = t - efekWajah.punch.startedAt;
+    const direction = efekWajah.punch.direction;
+    if (progress < .2) {
+      const hit = 1 - (1 - progress / .2) ** 3;
+      efekWajah.punch.kepalan.position.set(
+        THREE.MathUtils.lerp(direction * 1.05, -direction * .08, hit),
+        .12 + Math.sin(hit * Math.PI) * .08,
+        .52
+      );
+    } else {
+      const recoil = Math.min((progress - .2) / .28, 1);
+      efekWajah.punch.kepalan.position.set(
+        THREE.MathUtils.lerp(-direction * .08, direction * .72, recoil),
+        .12 - recoil * .12,
+        .52
+      );
+    }
+    efekWajah.punch.kilau.visible = progress >= .16 && progress < .62;
+    efekWajah.punch.kilau.rotation.z = progress * 5;
+    efekWajah.punch.kilau.scale.setScalar(1 + Math.sin(progress * 35) * .12);
+    if (progress >= .58) {
+      efekWajah.punch.active = false;
+      efekWajah.punch.group.visible = false;
+      efekWajah.punch.kilau.visible = false;
+    }
+  }
+}
+
+/* =====================================================
+   5. GANTI FILTER
+   ===================================================== */
+function pilihFilter(i) {
+  aktif = (i + filters.length) % filters.length;
+  filters.forEach((f, n) => f.groups.forEach(g => g.group.visible = n === aktif));
+  const d = filters[aktif].data;
+  $('fName').textContent = `${d.ikon} ${d.nama}`;
+  $('fDesc').textContent = d.deskripsi;
+  $('chips').innerHTML = filters.map((_, n) => `<span class="chip${n === aktif ? ' on' : ''}"></span>`).join('');
+  try { localStorage.setItem(STORAGE_KEY, d.id); } catch {}   // fitur pilihan: filter terakhir tersimpan
+}
+$('prev').onclick = () => pilihFilter(aktif - 1);
+$('next').onclick = () => pilihFilter(aktif + 1);
+
+/* =====================================================
+   6. AMBIL FOTO (video + model 3D digabung)
+   ===================================================== */
+function ambilFoto() {
+  const video = mindar.video, glCanvas = renderer.domElement, box = $('stage').getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio, 2);
+  const c = document.createElement('canvas');
+  c.width = Math.round(box.width * dpr); c.height = Math.round(box.height * dpr);
+  const ctx = c.getContext('2d');
+
+  renderer.render(scene, camera);             // pastikan buffer WebGL masih segar
+
+  const mirrored = [video, glCanvas].some(el => {
+    const tr = getComputedStyle(el).transform;
+    return tr && tr !== 'none' && /^matrix\(-/.test(tr);
+  });
+  if (mirrored) { ctx.translate(c.width, 0); ctx.scale(-1, 1); }
+
+  [video, glCanvas].forEach(el => {
+    // getBoundingClientRect sudah memperhitungkan flip, jadi pakai offsetLeft/Top/Width/Height
+    const x = (parseFloat(el.style.left) || 0) * dpr, y = (parseFloat(el.style.top) || 0) * dpr;
+    const w = (parseFloat(el.style.width) || box.width) * dpr, h = (parseFloat(el.style.height) || box.height) * dpr;
+    ctx.drawImage(el, x, y, w, h);
+  });
+
+  $('flash').classList.remove('go'); void $('flash').offsetWidth; $('flash').classList.add('go');
+
+  c.toBlob(blob => {
+    lastPhoto = blob;
+    $('previewImg').src = URL.createObjectURL(blob);
+    $('preview').classList.add('show');
+  }, 'image/png');
+}
+$('shutter').onclick = ambilFoto;
+$('closePreview').onclick = () => $('preview').classList.remove('show');
+
+$('save').onclick = async () => {
+  if (!lastPhoto) return;
+  const nama = `filter-wisuda-${Date.now()}.png`;
+  const file = new File([lastPhoto], nama, { type: 'image/png' });
+  try {
+    if (navigator.canShare?.({ files: [file] })) {   // iPhone/Android: lembar bagikan → "Simpan Gambar"
+      await navigator.share({ files: [file], title: 'Foto Filter Wisuda' });
+      return toast('Foto siap disimpan');
+    }
+  } catch (e) { if (e.name === 'AbortError') return; }
+  const a = document.createElement('a');             // desktop: unduh langsung
+  a.href = URL.createObjectURL(lastPhoto); a.download = nama; a.click();
+  toast('Foto tersimpan ke perangkat');
+};
+
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* =====================================================
+   7. PENANGANAN ERROR (izin kamera ditolak dll.)
+   ===================================================== */
+function tampilError(e) {
+  console.error(e);
+  const name = e?.name || '', msg = String(e?.message || e);
+  let emoji = '📷', title = 'Kamera tidak bisa dipakai', body = 'Terjadi kesalahan saat memulai kamera.', steps = [];
+
+  if (!window.isSecureContext || name === 'InsecureContextError') {
+    emoji = '🔐'; title = 'Butuh koneksi aman (HTTPS)';
+    body = 'Browser hanya mengizinkan kamera pada situs HTTPS atau localhost. Jangan buka halaman ini langsung sebagai file.';
+    steps = ['Jalankan situs melalui server lokal atau unggah ke hosting HTTPS', 'Buka kembali halaman dari alamat localhost atau https://', 'Ketuk “Coba lagi”'];
+  } else if (name === 'NotAllowedError' || /permission|denied/i.test(msg)) {
+    emoji = '🔒'; title = 'Izin kamera ditolak';
+    body = 'Filter wajah butuh kamera depan untuk melacak wajahmu. Tidak ada gambar yang dikirim ke server.';
+    steps = ['Ketuk ikon kunci/pengaturan di sebelah alamat situs', 'Ubah izin Kamera menjadi “Izinkan”', 'Ketuk “Coba lagi”'];
+  } else if (name === 'NotFoundError' || name === 'OverconstrainedError') {
+    emoji = '🔍'; title = 'Kamera tidak ditemukan';
+    body = 'Perangkat ini tidak punya kamera depan yang bisa diakses.';
+  } else if (name === 'NotReadableError') {
+    emoji = '⚠️'; title = 'Kamera sedang dipakai';
+    body = 'Tutup aplikasi lain yang memakai kamera, lalu coba lagi.';
+  } else if (name === 'NotSupportedError') {
+    emoji = '🌐'; title = 'Browser tidak mendukung kamera';
+    body = 'Buka halaman ini di browser modern yang mendukung akses kamera, seperti Chrome, Edge, atau Safari versi terbaru.';
+  }
+  $('errEmoji').textContent = emoji; $('errTitle').textContent = title; $('errMsg').textContent = body;
+  $('errSteps').innerHTML = steps.map(s => `<li>${s}</li>`).join('');
+  $('loading').classList.add('hide'); $('errorBox').classList.remove('hide');
+}
+
+async function mulai() {
+  $('errorBox').classList.add('hide'); $('loading').classList.remove('hide');
+  try {
+    if (started) { await mindar.start(); $('loading').classList.add('hide'); return; }
+    await init();
+  } catch (e) { tampilError(e); }
+}
+$('retry').onclick = mulai;
+mulai();
+</script>
+</body>
+</html>

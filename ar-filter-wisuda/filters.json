@@ -1,0 +1,39 @@
+{
+  "judul": "Wisuda & Kampus",
+  "filters": [
+    {
+      "id": "toga",
+      "nama": "Toga Wisuda",
+      "deskripsi": "Topi toga dengan tali kuncir yang bergoyang",
+      "ikon": "🎓",
+      "aksesori": [
+        {
+          "nama": "Topi toga",
+          "anchor": 10,
+          "model": "assets/topi-toga.glb",
+          "fallback": "toga",
+          "posisi": [0, 0.42, -0.1],
+          "rotasi": [0, 0, 0],
+          "skala": 1
+        }
+      ]
+    },
+    {
+      "id": "kacamata",
+      "nama": "Kacamata Berkilau",
+      "deskripsi": "Kacamata emas dengan bintang yang berputar",
+      "ikon": "🕶️",
+      "aksesori": [
+        {
+          "nama": "Kacamata",
+          "anchor": 168,
+          "model": "assets/kacamata.glb",
+          "fallback": "kacamata",
+          "posisi": [0, -0.05, 0.25],
+          "rotasi": [0, 0, 0],
+          "skala": 1
+        }
+      ]
+    }
+  ]
+}
